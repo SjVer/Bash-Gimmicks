@@ -1,0 +1,79 @@
+#!/bin/bash
+
+NC='\033[0m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+BOLD=$(tput bold)
+NORMAL=$(tput sgr0)
+
+function getexitstring() {
+	# returns a value based off exit code
+	# returns $1 if success else $2
+	if [ $? == 0 ]; then
+		echo $1
+	else
+		echo $2
+	fi
+}
+
+if [ "$1" == "--help" ]; then
+	echo gitroutine will add, commit and push for you.
+	echo you can set a message as the first argument.
+	echo you can set a remote as the second argument.
+	echo if the file .git/remotename exists it will use its contents as remote.
+	echo you can set a branch as the third argument.
+	echo if the file .git/branchname exists it will use its contents as branch.
+	return
+fi
+if ! [ "$1" ]; then
+	MESSAGE="upload"
+else
+	MESSAGE=$1
+fi
+if ! [ "$2" ]; then
+	if [ -f ".git/remotename" ]; then
+		REMOTE=$(cat .git/remotename)
+		printf "${YELLOW}${BOLD}No remote specified, read $REMOTE.\n${NC}${NORMAL}"
+	else
+		REMOTE=$(git config branch.$(git name-rev --name-only HEAD).remote)
+		if [[ -n "${REMOTE/[ ]*\n/}" ]] ; then
+			printf "${YELLOW}${BOLD}No remote specified, guessed $REMOTE.\n${NC}${NORMAL}"
+		else
+			printf "${YELLOW}${BOLD}No remote specified, using origin.\n${NC}${NORMAL}"
+			REMOTE=origin
+		fi
+	fi
+else
+	REMOTE=$2
+fi
+if ! [ "$3" ]; then
+	if [ -f ".git/branchname" ]; then
+		BRANCH=$(cat .git/branchname)
+		printf "${YELLOW}${BOLD}No branch specified, read $BRANCH.\n${NC}${NORMAL}"
+	else
+		BRANCH=$(git name-rev --name-only HEAD)
+		if [[ -n "${BRANCH/[ ]*\n/}" ]] ; then
+			printf "${YELLOW}${BOLD}No branch specified, guessed $BRANCH.\n${NC}${NORMAL}"
+		else
+			printf "${YELLOW}${BOLD}No branch specified, using main.\n${NC}${NORMAL}"
+			BRANCH=main
+		fi
+	fi
+else
+	BRANCH=$3
+fi
+printf "${YELLOW}${BOLD}Running git routine...\n${NC}${NORMAL}"
+
+printf "${YELLOW}${BOLD}Executing 'git add --all'...${NC}${NORMAL}"
+git add --all > /dev/null 2>&1
+printf "${YELLOW}${BOLD}\b\b $(getexitstring "Done!" "${RED}${BOLD}Failed!")\n${NC}${NORMAL}"
+
+printf "${YELLOW}${BOLD}Executing 'git commit -m \"${MESSAGE}\"'...${NC}${NORMAL}"
+git commit -m "$MESSAGE" > /dev/null 2>&1
+printf "${YELLOW}${BOLD}\b\b $(getexitstring "Done!" "${RED}${BOLD}Failed!")\n${NC}${NORMAL}"
+
+printf "${YELLOW}${BOLD}Executing 'git push $REMOTE $BRANCH'...${NC}${NORMAL}"
+git push $REMOTE $BRANCH > /dev/null 2>&1
+printf "${YELLOW}${BOLD}\b\b $(getexitstring "Done!" "${RED}${BOLD}Failed!")\n${NC}${NORMAL}"
+
+printf "${YELLOW}${BOLD}Git routine complete!\n${NC}${NORMAL}"
